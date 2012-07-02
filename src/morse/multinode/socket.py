@@ -2,6 +2,7 @@ import logging; logger = logging.getLogger("morse." + __name__)
 import socket
 import pickle
 import mathutils
+from bpy import data as bpy_data
 
 from morse.core.multinode import SimulationNodeClass
 
@@ -13,6 +14,7 @@ class SocketNode(SimulationNodeClass):
     node_socket = None
     connected = False
     out_data = {}
+    pose_data = {}
 
     def initialize(self):
         """
@@ -30,16 +32,16 @@ class SocketNode(SimulationNodeClass):
             logger.info("\t%s" % detail)
             self.connected = False
 
-    def _exchange_data(self, out_data):
+    def _exchange_data(self, out_data, pose_data):
         """ Send and receive pickled data through a socket """
         # Use the existing socket connection
         if self.connected:
-            message = pickle.dumps([self.node_name, out_data])
+            message = pickle.dumps([self.node_name, out_data, pose_data])
             sock = self.node_socket
             sock.send(message)
-            response = sock.recv(1024)
+            response = sock.recv(4096)
             in_data = pickle.loads(response)
-            logger.debug("Received: %s" % in_data)
+            #logger.debug("Received: %s" % in_data)
             return (in_data)
 
     def synchronize(self):
@@ -49,14 +51,27 @@ class SocketNode(SimulationNodeClass):
                 #self.out_data[obj.name] = [obj.worldPosition.to_tuple()]
                 euler_rotation = obj.worldOrientation.to_euler()
                 self.out_data[obj.name] = [obj.worldPosition.to_tuple(), [euler_rotation.x, euler_rotation.y, euler_rotation.z]]
+            # Get the pose of local armatures
+            for component_name, local_robot_data in self.gl.componentDict.items():
+                try:
+                    if bpy_data.objects[component_name].type == 'ARMATURE':
+                        scene = self.gl.getCurrentScene()
+                        component = scene.objects[component_name]
+                        if component.parent.get('Robot_Tag', False):
+                            armature_data = {}
+                            for bone in component.channels:
+                                if bone.name.startswith('X_'):
+                                    armature_data[bone.name] = [tuple(bone.location), tuple(bone.rotation_quaternion)]
+                            self.pose_data[component.name] = armature_data
+                except KeyError:
+                    pass
             # Send the encoded dictionary through a socket
             #  and receive a reply with any changes in the other nodes
-            in_data = self._exchange_data(self.out_data)
+            in_data = self._exchange_data(self.out_data, self.pose_data)
 
             if in_data != None:
-                scene = self.gl.getCurrentScene()
                 # Update the positions of the external robots
-                for obj_name, robot_data in in_data.items():
+                for obj_name, robot_data in in_data[0].items():
                     try:
                         obj = scene.objects[obj_name]
                         if obj not in self.gl.robotDict:
@@ -65,6 +80,18 @@ class SocketNode(SimulationNodeClass):
                             obj.worldOrientation = mathutils.Euler(robot_data[1]).to_matrix()
                     except KeyError as detail:
                         logger.info("Robot %s not found in this simulation scenario, but present in another node. Ignoring it!" % detail)
+                # Update the pose of external armamtures
+                for armature_name, armature_data in in_data[1].items():
+                    try:
+                        armature = scene.objects[armature_name]
+                        if armature.parent.get('External_Robot_Tag', False):
+                            channels = armature.channels
+                            for name, state in armature_data.items():
+                                channels[name].location = mathutils.Vector(state[0])
+                                channels[name].rotation_quaternion = mathutils.Quaternion(state[1])
+                            armature.update()
+                    except KeyError as detail:
+                        logger.info("Component %s not found in this simulation scenario, but present in another node. Ignoring it!" % detail)
 
     def finalize(self):
         """ Close the communication socket. """

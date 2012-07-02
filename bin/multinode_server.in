@@ -19,6 +19,7 @@ counter = 0
 client_counter = 0
 client_list = {}
 robot_dict = {}
+armature_dict = {}
 
 paused = False
 
@@ -93,7 +94,7 @@ class Client(threading.Thread):
         threading.Thread.__init__(self)
         self.client = client
         self.address = address
-        self.size = 1024
+        self.size = 4096
         self.start_time = time.time()
 
 
@@ -102,6 +103,7 @@ class Client(threading.Thread):
         global client_counter
         global client_list
         global robot_dict
+        global armature_dict
 
         running = 1
         while running:
@@ -110,6 +112,7 @@ class Client(threading.Thread):
                 data = pickle.loads(data)
                 client_name = data[0]
                 client_robot_list = data[1]
+                client_armature_list = data[2]
 
                 counter = counter + 1
 
@@ -125,6 +128,9 @@ class Client(threading.Thread):
                 #  the data received from all the clients
                 for robot_name, robot_position in client_robot_list.items():
                     robot_dict[robot_name] = robot_position
+                
+                for armature_name, armature_state in client_armature_list.items():
+                    armature_dict[armature_name] = armature_state
 
                 self.broadcast_positions()
 
@@ -135,7 +141,7 @@ class Client(threading.Thread):
 
     def broadcast_positions(self):
         """ Send the updated robot positions to all the connected clients """
-        response = pickle.dumps(robot_dict)
+        response = pickle.dumps((robot_dict, armature_dict))
 
         #print ("New robot list: ", robot_dict)
         #print ("Client %d, connected from %s, has been served" % (counter, self.address))
