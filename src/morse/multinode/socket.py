@@ -39,7 +39,7 @@ class SocketNode(SimulationNodeClass):
             message = pickle.dumps([self.node_name, out_data, pose_data])
             sock = self.node_socket
             sock.send(message)
-            response = sock.recv(4096)
+            response = sock.recv(8192)
             in_data = pickle.loads(response)
             #logger.debug("Received: %s" % in_data)
             return (in_data)
@@ -60,8 +60,7 @@ class SocketNode(SimulationNodeClass):
                         if component.parent.get('Robot_Tag', False):
                             armature_data = {}
                             for bone in component.channels:
-                                if bone.name.startswith('X_'):
-                                    armature_data[bone.name] = [tuple(bone.location), tuple(bone.rotation_quaternion)]
+                                armature_data[bone.name] = [tuple(bone.location), tuple(bone.joint_rotation)]
                             self.pose_data[component.name] = armature_data
                 except KeyError:
                     pass
@@ -88,7 +87,7 @@ class SocketNode(SimulationNodeClass):
                             channels = armature.channels
                             for name, state in armature_data.items():
                                 channels[name].location = mathutils.Vector(state[0])
-                                channels[name].rotation_quaternion = mathutils.Quaternion(state[1])
+                                channels[name].joint_rotation = state[1]
                             armature.update()
                     except KeyError as detail:
                         logger.info("Component %s not found in this simulation scenario, but present in another node. Ignoring it!" % detail)

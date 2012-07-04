@@ -508,6 +508,21 @@ class Environment(Component):
                     # This should stop them from drifting downwards
                     obj.game.physics_type = 'STATIC'
 
+            # Delete constraints and Action-actuators of external armatures
+            if obj.type == 'ARMATURE' and 'External_Robot_Tag' in obj.parent.game.properties:
+                obj.hide = False
+                bpy.ops.object.select_name(name=obj.name, extend=False)
+                bpy.ops.object.mode_set(mode='POSE')
+                bpy.ops.pose.select_all(action='SELECT')
+                bpy.ops.pose.constraints_clear()
+                bpy.ops.object.mode_set(mode='OBJECT')
+                for act in obj.game.actuators:
+                    if act.type == 'ACTION':
+                        bpy.ops.logic.actuator_remove(actuator=act.name, object=obj.name)
+                obj.hide = True
+                logger.debug("Node " + node_name + \
+                             "will not update armature " + obj.name)
+            
         """ Write the 'multinode_config.py' script """
         node_config = { 'protocol': self._protocol,
                         'node_name': node_name,
