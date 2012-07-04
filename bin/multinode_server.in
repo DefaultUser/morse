@@ -94,7 +94,7 @@ class Client(threading.Thread):
         threading.Thread.__init__(self)
         self.client = client
         self.address = address
-        self.size = 4096
+        self.size = 8192
         self.start_time = time.time()
 
 
