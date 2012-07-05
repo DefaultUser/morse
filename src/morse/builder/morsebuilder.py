@@ -511,7 +511,7 @@ class Environment(Component):
             # Delete constraints and Action-actuators of external armatures
             if obj.type == 'ARMATURE' and 'External_Robot_Tag' in obj.parent.game.properties:
                 obj.hide = False
-                bpy.ops.object.select_name(name=obj.name, extend=False)
+                bpy.data.scenes[0].objects.active = obj
                 bpy.ops.object.mode_set(mode='POSE')
                 bpy.ops.pose.select_all(action='SELECT')
                 bpy.ops.pose.constraints_clear()
