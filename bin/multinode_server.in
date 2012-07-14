@@ -20,6 +20,7 @@ client_counter = 0
 client_list = {}
 robot_dict = {}
 armature_dict = {}
+active_obj_dict = {}
 
 paused = False
 
@@ -104,6 +105,7 @@ class Client(threading.Thread):
         global client_list
         global robot_dict
         global armature_dict
+        global active_obj_dict
 
         running = 1
         while running:
@@ -113,6 +115,7 @@ class Client(threading.Thread):
                 client_name = data[0]
                 client_robot_list = data[1]
                 client_armature_list = data[2]
+                client_obj_list = data[3]
 
                 counter = counter + 1
 
@@ -128,9 +131,20 @@ class Client(threading.Thread):
                 #  the data received from all the clients
                 for robot_name, robot_position in client_robot_list.items():
                     robot_dict[robot_name] = robot_position
-                
+
                 for armature_name, armature_state in client_armature_list.items():
                     armature_dict[armature_name] = armature_state
+
+                for obj_name, obj_state in client_obj_list.items():
+                    active_obj_dict[obj_name] = obj_state
+
+                # remove all objects from the dict which are no longer grabbed by this client
+                poplist = []
+                for obj_name, obj_state in active_obj_dict.items():
+                    if obj_state[2] == client_name and obj_name not in client_obj_list:
+                        poplist.append(obj_name)
+                for obj_name in poplist:        
+                    active_obj_dict.pop(obj_name)
 
                 self.broadcast_positions()
 
@@ -141,7 +155,7 @@ class Client(threading.Thread):
 
     def broadcast_positions(self):
         """ Send the updated robot positions to all the connected clients """
-        response = pickle.dumps((robot_dict, armature_dict))
+        response = pickle.dumps((robot_dict, armature_dict, active_obj_dict))
 
         #print ("New robot list: ", robot_dict)
         #print ("Client %d, connected from %s, has been served" % (counter, self.address))
