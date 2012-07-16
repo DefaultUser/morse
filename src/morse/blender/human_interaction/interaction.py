@@ -282,7 +282,7 @@ def grab(cont):
     # Even if the physics shape consists of several compound objects,
     # the parent is considered when one of them is touched
 
-    if coll.hitObject == obj:
+    if  obj in coll.hitObjectList:
         logger.debug("Grabbing %s" % obj)
         ow['grabbing'] = None
         ow['selected'] = obj
